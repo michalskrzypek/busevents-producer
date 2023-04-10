@@ -16,7 +16,7 @@ import kotlin.random.Random
 
 @Service
 class BusEventsProducer(
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    private val kafkaTemplate: KafkaTemplate<Int, BusEntranceData>
 ) {
 
     companion object {
@@ -26,12 +26,12 @@ class BusEventsProducer(
         private const val LOG_FORMAT = "{} - {}"
     }
 
-    private val passengersInBusMap = Collections.synchronizedMap<Int, MutableList<Int>>(mapOf())
+    private val passengersInBusMap: MutableMap<Int, MutableList<Int>> = mutableMapOf()
 
     @Async
     fun start(busId: Int) {
         LOG.info(LOG_FORMAT, "$busId", "Starting bus entrance events producer process...")
-        passengersInBusMap[busId] = mutableListOf()
+        passengersInBusMap[busId] = Collections.synchronizedList(mutableListOf())
         val passengersInBus = passengersInBusMap[busId]!!
 
         runBlocking {
@@ -49,7 +49,7 @@ class BusEventsProducer(
                             busId,
                             EntranceType.OUT
                         )
-                        kafkaTemplate.send(KafkaTopics.BUS_ENTRANCE, busEntranceData)
+                        kafkaTemplate.send(KafkaTopics.BUS_ENTRANCE, busId, busEntranceData)
                     }
                 }
                 passengersInBusCount.updateAndGet { it - passengersToExit }
@@ -68,7 +68,7 @@ class BusEventsProducer(
                             busId,
                             EntranceType.IN
                         )
-                        kafkaTemplate.send(KafkaTopics.BUS_ENTRANCE, busEntranceData)
+                        kafkaTemplate.send(KafkaTopics.BUS_ENTRANCE, busId, busEntranceData)
                     }
                 }
                 delay(BUS_STOP_INTERVAL_IN_MS)
